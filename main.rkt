@@ -26,6 +26,13 @@
 
 ;; Code here
 
+(require "hop.rkt")
+(require "square.rkt")
+
+(provide
+  (all-from-out "hop.rkt")
+  (all-from-out "square.rkt"))
+
 (module+ test
   ;; Tests to be run with raco test
   )
