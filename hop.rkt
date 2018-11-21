@@ -18,7 +18,7 @@
     [r-s (-> procedure? any/c procedure?)]
     ))
 (provide o)
-(provide section)
+(provide section partial Px)
 
 ; +---------------------+--------------------------------------------
 ; | Exported procedures |
@@ -131,33 +131,6 @@
 ;;; Package:
 ;;;   loudhum/hop
 ;;; Procedure:
-;;;   o
-;;; Parameters:
-;;;   fun1, a unary function
-;;;   fun2, a unary function
-;;;   ...
-;;;   funn, a unary function
-;;; Purpose:
-;;;   Compose fun1 ... funn
-;;; Produces:
-;;;   fun, a function
-;;; Preconditions:
-;;;   Each function can be applied to the results of the subsequent
-;;;   function.
-;;; Postconditions:
-;;;   (fun x) = (fun1 (fun2 (.... (funn x)...)))
-(define o
-  (lambda funs
-    (lambda (x)
-      (let kernel ((remaining (reverse funs))
-                   (val x))
-        (if (null? remaining)
-            val
-            (kernel (cdr remaining) ((car remaining) val)))))))
-
-;;; Package:
-;;;   loudhum/hop
-;;; Procedure:
 ;;;   right-section
 ;;; Parameters:
 ;;;   proc2, a two-parameter procedure
@@ -199,6 +172,67 @@
 ; +-----------------+
 
 ;;; Package:
+;;;   loudhum/hop
+;;; Macro:
+;;;   partial
+;;; Parameters:
+;;;   exp, an expression containing zero or more parameter symbols (<>)
+;;; Purpose:
+;;;   Create a new procedure whose body is exp, with all <>'s replaced
+;;;   by parameters.
+;;; Produces:
+;;;   newproc, a procedure
+(define-syntax partial
+  (letrec ([kernel
+            (lambda (exp)
+              (cond
+                [(null? exp)
+                  (list null null)]
+                [(equal? exp '<>)
+                 (let ([param (gensym "param-")])
+                   (list (list param) param))]
+                [(not (pair? exp))
+                 (list null exp)]
+                [else
+                  (let ([fa-rest (kernel (cdr exp))])
+                    (cond
+                      [(pair? (car exp))
+                       (let [(fa1 (kernel (car exp)))]
+                         (list (append (car fa1) (car fa-rest))
+                               (append (cadr fa1) (cadr fa-rest))))]
+                      [(or (eq? '<> (car exp))
+                           (eq? '_ (car exp)))
+                       (let [(param (gensym "param-"))]
+                         (list (cons param (car fa-rest))
+                               (cons param (cadr fa-rest))))]
+                      [else
+                       (list (car fa-rest)
+                             (cons (car exp) (cadr fa-rest)))]))]))])
+    (lambda (stx)
+      (let ([info (syntax->datum stx)])
+        (cond    
+          [(symbol? info) 
+           (datum->syntax stx '(quote <macro:partial>))]
+          [(null? (cdr info))
+           (error "partial: Requires an expression")]
+          [(and (not (null? (cddr info))) (not (equal? (caddr info) 'code)))
+           (write (caddr info)) (newline)
+           (error "partial: Requires a single expression" info)]
+          [else
+           (let [(code (cons 'lambda (kernel (cadr info))))]
+             (if (not (null? (cddr info)))
+                 (datum->syntax stx (list 'quote code))
+                 (datum->syntax stx code)))])))))
+
+(define-syntax (Px stx)
+  (let ([info (syntax->datum stx)])
+    (cond
+      [(symbol? info)
+       (datum->syntax stx '(quote <macro:Px>))]
+      [else
+       (datum->syntax stx (cons 'partial (cdr info)))])))
+
+;; Package:
 ;;;   loudhum/hop
 ;;; Procedure:
 ;;;   section
@@ -250,4 +284,39 @@
                 (kernel (cdr params)
                         formals
                         (cons (car params) actuals))])))]))))
+
+;;; Package:
+;;;   loudhum/hop
+;;; Macro:
+;;;   o
+;;; Parameters:
+;;;   fun1, a unary function
+;;;   fun2, a unary function
+;;;   ...
+;;;   funn, a unary function
+;;; Purpose:
+;;;   Compose fun1 ... funn
+;;; Produces:
+;;;   fun, a function
+;;; Preconditions:
+;;;   Each function can be applied to the results of the subsequent
+;;;   function.
+;;; Postconditions:
+;;;   (fun x) = (fun1 (fun2 (.... (funn x)...)))
+(define-syntax o
+  (lambda (stx)
+    (let ([info (syntax->datum stx)])
+      (cond
+        [(symbol? info)
+         (datum->syntax stx '(quote <macro:o>))]
+        [else
+         (let ([param (gensym "param-")])
+           (let kernel ([remaining (reverse (cdr info))]
+                        [body param])
+             (if (null? remaining)
+                 (let ([code `(lambda (,param) ,body)])
+                   ; (display code) (newline) ; experiment
+                   (datum->syntax stx code))
+                 (kernel (cdr remaining)
+                         (list (car remaining) body)))))]))))
 
