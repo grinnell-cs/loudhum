@@ -26,9 +26,11 @@
 
 ;; Code here
 
+(require "files.rkt")
 (require "hop.rkt")
 
 (provide
+  (all-from-out "files.rkt")
   (all-from-out "hop.rkt"))
 
 (module+ test
