@@ -13,6 +13,7 @@
   [file->lines (-> string? (listof string?))]
   [file->words (-> string? (listof string?))]
   [file->string (-> string? string?)]
+  [lines->file (-> (listof string?) string? void?)]
   [string->file (-> string? string? void?)]
   [read-word (-> input-port? string?)]
   [skip-char (-> input-port? char? boolean?)]
@@ -108,6 +109,26 @@
 ;;; Package:
 ;;;   loudhum/files
 ;;; Procedure:
+;;;   lines->file
+;;; Parameter:
+;;;   lines, a list of strings
+;;;   fname, a string
+;;; Purpose:
+;;;   Saves the given lines to the named file.
+;;; Preconditions:
+;;;   The fname must name a writeable file.
+;;; Postconditions:
+;;;   The given file now contains all the entries in lines.
+(define lines->file
+  (lambda (lines fname)
+    (let ([port (open-output-file fname #:exists 'replace)])
+      (for-each (lambda (line) (display line port) (newline port))
+                lines)
+      (close-output-port port))))
+
+;;; Package:
+;;;   loudhum/files
+;;; Procedure:
 ;;;   string->file
 ;;; Parameters:
 ;;;   str, a string
@@ -122,6 +143,8 @@
 ;;;   The named file now contains str.
 ;;; Precautions:
 ;;;   Can clobber files.  Be careful.
+;;; Problems:
+;;;   May add an extra newline.
 (define string->file
   (lambda (str fname)
     (let ([port (open-output-file fname #:exists 'replace)])
