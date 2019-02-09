@@ -28,6 +28,7 @@
 
 (require "files.rkt")
 (require "hop.rkt")
+(require "lists.rkt")
 
 (provide
   (all-from-out "files.rkt")
