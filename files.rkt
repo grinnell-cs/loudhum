@@ -96,15 +96,10 @@
 ;;;   str contains all of the characters
 (define file->string
   (lambda (fname)
-    (let ([port (open-input-file fname)])
-      (let kernel ()
-        (let ([line (read-line port)])
-          (cond
-            [(eof-object? line )
-             (close-input-port port)
-             ""]
-            [else
-             (string-append line "\n" (kernel))]))))))
+    (let* ([port (open-input-file fname)]
+           [result (port->string port)])
+      (close-input-port port)
+      result)))
 
 ;;; Package:
 ;;;   loudhum/files
