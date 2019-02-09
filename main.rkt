@@ -31,7 +31,8 @@
 
 (provide
   (all-from-out "files.rkt")
-  (all-from-out "hop.rkt"))
+  (all-from-out "hop.rkt")
+  (all-from-out "lists.rkt"))
 
 (module+ test
   ;; Tests to be run with raco test
