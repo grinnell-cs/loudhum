@@ -29,11 +29,14 @@
 (require "files.rkt")
 (require "hop.rkt")
 (require "lists.rkt")
+(require "web-utils.rkt")
 
 (provide
   (all-from-out "files.rkt")
   (all-from-out "hop.rkt")
-  (all-from-out "lists.rkt"))
+  (all-from-out "lists.rkt")
+  (all-from-out "web-utils.rkt"))
+
 
 (module+ test
   ;; Tests to be run with raco test
