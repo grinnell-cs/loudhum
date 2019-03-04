@@ -695,3 +695,46 @@
                     (add-substring front back
                                    (add-substring cur front
                                                   substrings))))))))
+
+;;; Procedure:
+;;;   add-top
+;;; Parameters:
+;;;   sexp, an sexp expression
+;;; Purpose:
+;;;   Adds *TOP*, if necessary.
+;;; Produces:
+;;;   topped, an sexp expression
+;;; Philosophy:
+;;;   Some of the XPath/XSLT procedures require this
+;;; Preconditions:
+;;;   [No additional]
+;;; Postconditions:
+;;;   (car topped) = '*TOP*
+(define add-top
+  (lambda (sexp)
+    (if (eq? '*TOP* (car sexp))
+        sexp
+        (list '*TOP* sexp))))
+
+;;; Procedure:
+;;;   sxpath-match
+;;; Parameters:
+;;;   path, a string
+;;;   xexp, an xexp expression
+;;; Purpose:
+;;;   Identify all of the elements of xexp that match
+;;;   the given path.
+;;; Produces:
+;;;   matches, a list of elements
+(define sxpath-match
+  (lambda (path xexp)
+    ((sxpath path) (add-top xexp))))
+
+(define sxpath-replace
+  (lambda (path xexp transform)
+    ((sxml:modify (list path
+                        ; sxml:modify expects a three parameter proc;
+                        ; we expect a one-parameter proc.
+                        (lambda (element context root)
+                          (transform element))))
+     (add-top xexp))))
