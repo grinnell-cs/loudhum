@@ -21,7 +21,7 @@
 ; +--------+
 
 ;;; Procedure:
-;;;   file->html
+;;;   file->xml
 ;;; Parameters:
 ;;;   fname, a string
 ;;; Purpose:
@@ -33,7 +33,7 @@
 ;;;   The given file contains HTML
 ;;; Postconditions:
 ;;;   html represents the page.
-(define file->html
+(define file->xml
   (lambda (fname)
     (let* ([port (open-input-file fname)]
            [result (merge-multiple-classes
@@ -43,7 +43,7 @@
       result)))
 
 ;;; Procedure:
-;;;   html->file
+;;;   xml->file
 ;;; Parameters:
 ;;;   html, an xexp expression
 ;;;   fname, a string
@@ -51,14 +51,14 @@
 ;;;   Saves html to the given file.
 ;;; Produces:
 ;;;   [Nothing; called for the side effect.]
-(define html->file
+(define xml->file
   (lambda (html fname)
     (let ([port (open-output-file fname)])
       (write-html html port)
       (close-output-port port))))
 
 ;;; Procedure:
-;;;   string->html
+;;;   string->xml
 ;;; Parameters:
 ;;;   str, a string
 ;;; Purpose:
@@ -69,13 +69,13 @@
 ;;; Preconditions:
 ;;;   html contains relatively valid HTML.
 ;;; Postconditions:
-;;;  (string->html (html->string html)) is approximately html
-(define string->html
+;;;  (string->xml (xml->string html)) is approximately html
+(define string->xml
   (lambda (str)
     (merge-multiple-classes (xexp/top-element (html->xexp str)))))
 
 ;;; Procedure:
-;;;   html->string
+;;;   xml->string
 ;;; Parameters:
 ;;;   html, an xexp expression
 ;;; Purpose:
@@ -85,12 +85,13 @@
 ;;; Preconditions:
 ;;;   [No additional]
 ;;; Postconditions:
-;;;  (string->html (html->string html)) is approximately html
-(define html->string
+;;;  (string->xml (xml->string html)) is approximately html
+(define xml->string
   (lambda (html)
     (let ([port (open-output-string)])
       (write-html html port)
       (get-output-string port))))
+
 ; +-------------------+----------------------------------------------
 ; | xexp manipulation |
 ; +-------------------+
@@ -127,7 +128,7 @@
 ;;;   xexp, an xexp expression
 ;;; Purpose:
 ;;;   Deal with a few potential issues with xexps, either those generated
-;;;   by html->xexp or those written by students.
+;;;   by xml->xexp or those written by students.
 ;;; Produces:
 ;;;   clean, an xexp expression
 (define xexp/cleanup
@@ -173,7 +174,7 @@
 ;;;   That syntax has the nice property that the last item in the list
 ;;;   is the element.  However, html-parsing seems to allow things
 ;;;   after the element.
-;;;     > (html->xexp "<input type='text'/>\n\n\n")
+;;;     > (xml->xexp "<input type='text'/>\n\n\n")
 ;;;     '(*TOP* (input (@ (type "text"))) "\n" "\n" "\n")
 (define xexp/top-element
   (lambda (top)
@@ -303,10 +304,10 @@
 ;;; Produces:
 ;;;   text, a string
 (define extract-text
-  (lambda (page)
+  (lambda (xexp)
     ((sxpath "string(/)")
      (page-delete-comments
-      (page-delete-elements page 'script)))))
+      (page-delete-elements xexp 'script)))))
 
 ;;; Procedure:
 ;;;   extract-by-tag
@@ -350,6 +351,20 @@
               (cadar attributes)]
              [else
               (kernel (cdr attributes))]))]))))
+
+;;; Procedure:
+;;;   sxpath-match
+;;; Parameters:
+;;;   path, a string
+;;;   xexp, an xexp expression
+;;; Purpose:
+;;;   Identify all of the elements of xexp that match
+;;;   the given path.
+;;; Produces:
+;;;   matches, a list of elements
+(define sxpath-match
+  (lambda (path xexp)
+    ((sxpath path) (add-top xexp))))
 
 ; +-----------------+------------------------------------------------
 ; | Transform pages |
@@ -518,6 +533,78 @@
                     (list "//link" (fixer 'href))
                     (list "//script" (fixer 'src)))
        xexp))))
+
+;;; Procedure:
+;;;   sxpath-kernel
+;;; Parameters:
+;;;   path, an XPath as a string
+;;;   xexp, an xexp expressions
+;;;   modify, the result of sxml:modify
+;;; Purpose:
+;;;   Modify the xexp as described.
+;;; Produces:
+;;;   result, an xexp expression
+(define sxpath-kernel
+  (lambda (path xexp . instructions)
+    (remove-top
+     ((sxml:modify (cons path instructions))
+      (add-top xexp)))))
+    
+;;; Purpose:
+;;;   
+;;; Procedure:
+;;;   sxpath-delete
+;;; Parameters:
+;;;   path, an XPath as a string
+;;;   xexp, an xexp expression
+;;; Purpose:
+;;;   Delete all of the elments that meet path
+;;; Produces:
+;;;   result, an xexp expression
+(define sxpath-delete
+  (lambda (path xexp)
+    (sxpath-kernel path xexp 'delete)))
+
+;;; Procedure:
+;;;   sxpath-remove
+;;; Parameters:
+;;;   path, an XPath as a string
+;;;   sexp, an sexp expression
+;;; Purpose:
+;;;   Delete the tags at the root of the elements marked by path.
+;;; Produces:
+;;;   result, an xexp exprssion
+(define sxpath-remove
+  (lambda (path xexp)
+    (sxpath-kernel path xexp 'delete-undeep)))
+
+;;; Procedure:
+;;;   sxpath-replace
+;;; Parameters:
+;;;   path, an XPath as a string
+;;;   xexp, an xexp expression
+;;;   transform, a unary procedure
+;;; Purpose:
+;;;   Create a new xexp expression by appling transform to each element in
+;;;   xexp described by path.
+;;; Produces:
+;;;   result, an xexp expression
+(define sxpath-replace
+  (lambda (path xexp transform)
+    (sxpath-kernel path
+                   xexp
+                   (lambda (element context root)
+                     (transform element)))))
+    
+(define sxpath-replace-old
+  (lambda (path xexp transform)
+    (remove-top
+     ((sxml:modify (list path
+                         ; sxml:modify expects a three parameter proc;
+                         ; we expect a one-parameter proc.
+                         (lambda (element context root)
+                           (transform element))))
+      (add-top xexp)))))
 
 ; +-------------------------+----------------------------------------
 ; | Miscellaneous utilities |
@@ -712,29 +799,61 @@
 ;;;   (car topped) = '*TOP*
 (define add-top
   (lambda (sexp)
-    (if (eq? '*TOP* (car sexp))
+    (if (and (pair? sexp) (eq? '*TOP* (car sexp)))
         sexp
         (list '*TOP* sexp))))
 
 ;;; Procedure:
-;;;   sxpath-match
+;;;   remove-top
 ;;; Parameters:
-;;;   path, a string
+;;;   sexp, an sexp expression
+;;; Purpose:
+;;;   Remove the *TOP* that may have been added.
+;;; Produces:
+;;;   result, an sexp expression
+;;; Philosophy:
+;;;   "undoes" add-top
+(define remove-top
+  (lambda (sexp)
+    (if (and (pair? sexp) (eq? (car sexp) '*TOP*))
+        (if (and (pair? (cdr sexp)) (string? (cadr sexp)))
+            (cadr sexp)
+            (cdr sexp))
+        sexp)))
+
+;;; Procedure:
+;;;   filter-out-whitespace
+;;; Parameters:
 ;;;   xexp, an xexp expression
 ;;; Purpose:
-;;;   Identify all of the elements of xexp that match
-;;;   the given path.
+;;;   Remove any strings from xexp that consist of only whitespace.
 ;;; Produces:
-;;;   matches, a list of elements
-(define sxpath-match
-  (lambda (path xexp)
-    ((sxpath path) (add-top xexp))))
+;;;   result, an xexp expression
+(define filter-out-whitespace
+  (lambda (xexp)
+    (cond
+      [(pair? xexp)
+       (map filter-out-whitespace (filter (lambda (exp)
+                                            (or (not (string? exp))
+                                                (not (regexp-match-exact? "[ \t\n]*" exp))))
+                                          xexp))]
+      [else
+       xexp])))
 
-(define sxpath-replace
-  (lambda (path xexp transform)
-    ((sxml:modify (list path
-                        ; sxml:modify expects a three parameter proc;
-                        ; we expect a one-parameter proc.
-                        (lambda (element context root)
-                          (transform element))))
-     (add-top xexp))))
+;;; Procedure:
+;;;   strip-newlines
+;;; Parameters:
+;;;   xexp, an xexp epression
+;;; Purpose:
+;;;   Remove most of the newlines from the given document.
+;;; Produces:
+;;;   result, an xexp expression
+(define strip-newlines
+  (lambda (xexp)
+    (cond
+      [(string? xexp)
+       (regexp-replace* "^\n|\n$" xexp "")]
+      [(pair? xexp)
+       (map strip-newlines xexp)]
+      [else
+       xexp])))
