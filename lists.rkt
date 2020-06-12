@@ -15,6 +15,8 @@
     [take-random (-> list? integer? list?)]
     [tally (-> list? (-> any/c any) integer?)]
     [tally-value (-> list any/c integer?)]
+    [range (-> integer? list?)]
+    [range1 (-> integer? list?)]
     ))
 
 ; +-------------------------------+----------------------------------
