@@ -191,3 +191,46 @@
 (define tally-value
   (lambda (lst val)
     (tally lst (lambda (v) (equal? v val)))))
+
+;;; Procedure:
+;;;   range
+;;; Parameters:
+;;;   n, an integer
+;;; Purpose:
+;;;   Constructs a list containing 0, ..., n-1 if n >= 0 and the empty
+;;;   list otherwise.
+;;; Produces:
+;;;   result, a list
+;;; Preconditions:
+;;;   [No additional]
+;;; Postconditions:
+;;;   The length of result is n if n >= 0 and 0 otherwise.
+(define range
+  (lambda (n)
+    (letrec ([reverse-helper
+              (lambda (acc l)
+                (cond [(null? l) acc]
+                      [else (reverse-helper (cons (car l) acc)
+                                            (cdr l))]))]
+             [range-helper
+              (lambda (n)
+                (cond [(< n 0) '()]
+                      [else (cons n (range-helper (- n 1)))]))])
+            (reverse-helper '() (range-helper (- n 1))))))
+
+;;; Procedure:
+;;;   range1
+;;; Parameters:
+;;;   n, an integer
+;;; Purpose:
+;;;   Constructs a list containing 1, ..., n if n >= 0 and the empty
+;;;   list otherwise.
+;;; Produces:
+;;;   result, a list
+;;; Preconditions:
+;;;   [No additional]
+;;; Postconditions:
+;;;   The length of result is n if n >= 0 and 0 otherwise.
+(define range1
+  (lambda (n)
+    (map (lambda (n) (+ n 1)) (range n))))
